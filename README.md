@@ -26,4 +26,27 @@ C'est ce qu'on appelle le principe "Open/Closed" en génie logiciel — ton syst
 C'est quoi pinger.py et pourquoi il existe ?
 C'est le module qui fait une seule chose : envoyer un ping ICMP à une adresse IP et retourner le résultat. Rien de plus. Il correspond dans les diagrammes à l'Agent ICMP du diagramme de composants et à la méthode ping() de la classe Equipement.
 Le principe : ton OS a déjà une commande ping intégrée — Python va juste l'appeler et interpréter le résultat.
+La fonction ping_equipement() retourne un dictionnaire propre que superviseur.py va utiliser directement pour décider si un équipement est UP ou DOWN, et que basedonne.py va enregistrer dans la table metriques.
 
+C'est quoi superviseur.py et pourquoi il existe ?C'est le cerveau du système — le module principal qui orchestre tout. Il tourne en boucle infinie, appelle pinger.py pour chaque équipement, enregistre les résultats dans la base via basedonne.py, et décide si une alerte doit être créée. Il correspond exactement au Moteur de Supervision dans le diagramme de composants et à la boucle principale du diagramme de séquence (loop toutes les 30 secondes).
+
+Pour tester maintenant
+bashpython superviseur.py
+Tu vas voir quelque chose comme :
+==================================================
+  SYSTÈME DE SUPERVISION RÉSEAU
+  Démarrage...
+==================================================
+[SUPERVISEUR] Initialisation des équipements...
+  ✓ Routeur Principal (192.168.1.1) enregistré
+  ✓ Switch Coeur (192.168.1.2) enregistré
+  ...
+
+==================================================
+[CYCLE] 14:32:01 - supervision de 8 équipements
+==================================================
+  [ECHEC] Routeur Principal (192.168.1.1) - échec 1/3
+  [ECHEC] Switch Coeur (192.168.1.2) - échec 1/3
+  [OK] 8.8.8.8 - latence : 12.0 ms
+  ...
+Les équipements fictifs vont tous échouer (normal, les IPs n'existent pas sur ton réseau), mais c'est exactement ce qu'on veut voir — le système détecte les pannes et crée les alertes après 3 échecs consécutifs.
