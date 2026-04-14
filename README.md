@@ -28,7 +28,7 @@ C'est le module qui fait une seule chose : envoyer un ping ICMP à une adresse I
 Le principe : ton OS a déjà une commande ping intégrée — Python va juste l'appeler et interpréter le résultat.
 La fonction ping_equipement() retourne un dictionnaire propre que superviseur.py va utiliser directement pour décider si un équipement est UP ou DOWN, et que basedonne.py va enregistrer dans la table metriques.
 
-C'est quoi superviseur.py et pourquoi il existe ?C'est le cerveau du système — le module principal qui orchestre tout. Il tourne en boucle infinie, appelle pinger.py pour chaque équipement, enregistre les résultats dans la base via basedonne.py, et décide si une alerte doit être créée. Il correspond exactement au Moteur de Supervision dans le diagramme de composants et à la boucle principale du diagramme de séquence (loop toutes les 30 secondes).
+-C'est quoi superviseur.py et pourquoi il existe ?C'est le cerveau du système — le module principal qui orchestre tout. Il tourne en boucle infinie, appelle pinger.py pour chaque équipement, enregistre les résultats dans la base via basedonne.py, et décide si une alerte doit être créée. Il correspond exactement au Moteur de Supervision dans le diagramme de composants et à la boucle principale du diagramme de séquence (loop toutes les 30 secondes).
 
 Pour tester maintenant
 bashpython superviseur.py
@@ -129,3 +129,113 @@ un système d’escalade
 Si tu veux, je peux aussi t’expliquer comment ajouter une fonction de notification (mail/Slack) dans alertemanager.py.
 
 Raptor mini (Preview) • 1x
+
+
+appli.py module; 
+Interface web de supervision.
+
+Ce fichier démarre une application Flask qui permet de :
+- afficher le dashboard de supervision
+- lister les équipements et leur statut
+- afficher les alertes actives
+- acquitter une alerte depuis l'interface
+But de appli.py
+appli.py est le point d’entrée de l’interface web de ton logiciel de supervision.
+
+Il permet de transformer le système de supervision en application web accessible depuis un navigateur.
+Sans ce fichier, ton projet ne serait qu’un programme qui tourne en console et enregistre des données dans SQLite.
+Rôle de appli.py
+1. Démarrer le serveur web
+Il crée un objet Flask : app = Flask(__name__, template_folder="Template")
+Cela signifie que l’application web va servir des pages HTML depuis le dossier Template
+2. Afficher les vues principales
+Il définit plusieurs routes HTTP :
+
+/ → page d’accueil / dashboard
+/equipements → liste des équipements supervisés
+/equipement/<id> → détail d’un équipement + historique des métriques
+/alertes → liste des alertes actives
+/alertes/acquitter/<id> → action pour acquitter une alerte
+Pourquoi appli.py existe
+C’est le fichier qui fait le lien entre :
+
+la base de données (basedonne.py)
+la logique des alertes (alertemanager.py)
+les templates HTML
+et l’utilisateur qui consulte le système depuis un navigateur
+Sans appli.py, tu aurais bien les données et la supervision, mais pas de tableau de bord ni d’interface utilisateur.
+
+Comment il fonctionne en arrière-plan
+appli.py importe les fonctions utiles :
+
+get_tous_equipements() et get_historique_metriques() depuis basedonne.py
+lister_alertes_actives() et acquitter_alerte_par_id() depuis alertemanager.py
+Quand un visiteur ouvre une page :
+
+Flask appelle la fonction correspondante (dashboard(), liste_equipements(), etc.)
+cette fonction récupère des données en base
+puis retourne une page HTML générée avec render_template(...)
+Pour acquitter une alerte :
+
+la route /alertes/acquitter/<id> appelle acquitter_alerte_par_id()
+puis redirige vers la page des alertes
+En résumé
+appli.py existe pour que ton logiciel de supervision soit :
+
+utilisable via un navigateur
+plus facile à consulter
+capable d’afficher les équipements et alertes en temps réel
+capable de piloter l’application depuis une interface graphique simple
+Si tu veux, je peux aussi expliquer comment fonctionne le template tabbord.html avec appli.py.
+
+Raptor mini (Preview) • 1x
+
+Les fichiers html:
+
+
+Rôle global des fichiers HTML
+Ces fichiers sont les vues de l’interface web Flask.
+
+Ils ne contiennent pas la logique métier.
+Ils affichent les données envoyées par appli.py.
+Ils utilisent le moteur de template Jinja de Flask ({{ ... }} et {% ... %}).
+Chaque template correspond à une page différente du site.
+
+Template/tabbord.html
+But
+Afficher le tableau de bord principal.
+Ce qu’il sert à montrer
+la liste des équipements supervisés
+le statut de chaque équipement
+les alertes actives en cours
+Son rôle dans la structure
+C’est la page d’accueil de l’application web
+Elle permet de voir rapidement l’état du système
+Elle relie les pages équipements et alertes avec des liens
+Template/equipement.html
+But
+Afficher soit la liste complète des équipements,
+soit le détail d’un seul équipement.
+Ce qu’il sert à montrer
+si equipement est absent : liste des équipements
+si equipement est présent : détail de l’équipement et son historique de métriques
+Son rôle dans la structure
+C’est une page polyvalente
+Elle évite de créer deux templates séparés pour la liste et le détail
+Elle rend l’interface plus simple à maintenir
+Template/alerte.html
+But
+Afficher les alertes actives non acquittées
+Ce qu’il sert à montrer
+chaque alerte active
+le niveau, la date et l’équipement concerné
+un lien pour acquitter l’alerte
+Son rôle dans la structure
+C’est la page dédiée au suivi des problèmes
+Elle permet de visualiser les incidents en cours
+Elle rend possible l’action de nettoyage via l’interface
+En résumé
+tabbord.html = vue générale, dashboard
+equipement.html = équipements + détails
+alerte.html = suivi et acquittement des alertes
+Ces fichiers sont indispensables pour que ton projet ne soit pas seulement un programme console, mais un vrai tableau de bord web.
