@@ -8,5 +8,7 @@ if errorlevel 1 (
   exit /b 1
 )
 echo Demarrage de l'interface web de supervision...
-python appli.py
-pause
+start "Serveur Flask" python appli.py
+timeout /t 2 /nobreak >nul
+start "" http://127.0.0.1:5000
+exit /b 0
