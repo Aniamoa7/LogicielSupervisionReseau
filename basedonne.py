@@ -199,7 +199,7 @@ def get_logs_recents(limite=100):
     logs = conn.execute("""
         SELECT l.*, e.nom as equipement_nom
         FROM logs l
-        LEFT JOIN e ON l.equipement_id = e.id
+        LEFT JOIN equipements e ON l.equipement_id = e.id
         ORDER BY l.timestamp DESC
         LIMIT ?
     """, (limite,)).fetchall()
