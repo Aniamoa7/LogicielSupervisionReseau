@@ -7,10 +7,26 @@ except ImportError as exc:
         "Installez-le avec : pip install flask"
     ) from exc
 
-from basedonne import get_tous_equipements, get_historique_metriques
+from basedonne import (
+    creer_tables,
+    ajouter_equipement,
+    get_tous_equipements,
+    get_historique_metriques
+)
+from config import EQUIPEMENTS
 from alertemanager import lister_alertes_actives, acquitter_alerte_par_id
 
 app = Flask(__name__, template_folder="Template")
+
+
+def initialiser_base():
+    """Crée la base et ajoute les équipements définis dans config.py."""
+    creer_tables()
+    for eq in EQUIPEMENTS:
+        ajouter_equipement(eq["nom"], eq["adresse_ip"], eq["type"])
+
+
+initialiser_base()
 
 
 def trouver_equipement(equipement_id):
