@@ -8,10 +8,9 @@ from basedonne import (
     get_tous_equipements,
     mettre_a_jour_statut,
     enregistrer_metrique,
-    creer_alerte,
     ajouter_log,
-    get_alertes_actives
 )
+from alertemanager import generer_alerte, lister_alertes_actives
 
 # ─────────────────────────────────────────
 # MÉMOIRE DES ÉCHECS CONSÉCUTIFS
@@ -78,7 +77,7 @@ def analyser_resultat(equipement, resultat_ping):
             # seuil atteint → créer une alerte
             niveau = NIVEAUX_ALERTE.get(eq_type, "P3_MINEUR")
             mettre_a_jour_statut(eq_id, "INACTIF")
-            creer_alerte(
+            if generer_alerte(
                 equipement_id=eq_id,
                 titre=f"Panne détectée : {eq_nom}",
                 description=(
@@ -86,14 +85,10 @@ def analyser_resultat(equipement, resultat_ping):
                     f"depuis {nb} tentatives consécutives."
                 ),
                 niveau=niveau
-            )
-            ajouter_log(
-                message=f"ALERTE {niveau} créée pour {eq_nom} ({eq_ip})",
-                niveau="ERROR",
-                source="superviseur",
-                equipement_id=eq_id
-            )
-            print(f"  [ALERTE {niveau}] Panne enregistrée pour {eq_nom} !")
+            ):
+                print(f"  [ALERTE {niveau}] Panne enregistrée pour {eq_nom} !")
+            else:
+                print(f"  [ALERTE] Une alerte active existe déjà pour {eq_nom}.")
             # reset pour ne pas créer une alerte à chaque cycle
             compteur_echecs[eq_id] = 0
 
@@ -119,7 +114,7 @@ def cycle_supervision():
         analyser_resultat(eq, resultat)
 
     # afficher les alertes actives à la fin du cycle
-    alertes = get_alertes_actives()
+    alertes = lister_alertes_actives()
     if alertes:
         print(f"\n  ⚠️  {len(alertes)} alerte(s) active(s) non acquittée(s)")
 
