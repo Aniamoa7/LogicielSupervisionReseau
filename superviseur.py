@@ -7,6 +7,7 @@ from pinger import ping_equipement
 from basedonne import (     
     get_tous_equipements,
     mettre_a_jour_statut,
+    mettre_a_jour_verification,
     enregistrer_metrique,
     ajouter_log,
 )
@@ -70,6 +71,7 @@ def analyser_resultat(equipement, resultat_ping):
         nb = compteur_echecs[eq_id]
 
         enregistrer_metrique(eq_id, "PING", 0, "bool")
+        mettre_a_jour_verification(eq_id)
         print(f"  [ECHEC] {eq_nom} ({eq_ip}) "
               f"- échec {nb}/{SEUIL_PANNES_CONSECUTIVES}")
 
