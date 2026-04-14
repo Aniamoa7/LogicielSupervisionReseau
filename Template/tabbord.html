@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Dashboard Supervision</title>
+  <style>body{font-family:Arial;margin:20px;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #ccc;padding:8px;text-align:left;}th{background:#f4f4f4;}a{color:#0066cc;}</style>
+</head>
+<body>
+  <h1>Dashboard de supervision</h1>
+  <p><a href="/equipements">Liste des équipements</a> | <a href="/alertes">Alertes actives</a></p>
+
+  <h2>Équipements supervisés</h2>
+  <table>
+    <thead><tr><th>ID</th><th>Nom</th><th>IP</th><th>Type</th><th>Statut</th><th>Dernière vérification</th></tr></thead>
+    <tbody>
+      {% for eq in equipements %}
+      <tr>
+        <td>{{ eq.id }}</td>
+        <td><a href="/equipement/{{ eq.id }}">{{ eq.nom }}</a></td>
+        <td>{{ eq.adresse_ip }}</td>
+        <td>{{ eq.type }}</td>
+        <td>{{ eq.statut }}</td>
+        <td>{{ eq.derniere_verification or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Alertes actives</h2>
+  {% if alertes %}
+  <table>
+    <thead><tr><th>ID</th><th>Équipement</th><th>Titre</th><th>Niveau</th><th>Date</th><th>Acquitter</th></tr></thead>
+    <tbody>
+      {% for alerte in alertes %}
+      <tr>
+        <td>{{ alerte.id }}</td>
+        <td>{{ alerte.equipement_nom }} ({{ alerte.adresse_ip }})</td>
+        <td>{{ alerte.titre }}</td>
+        <td>{{ alerte.niveau }}</td>
+        <td>{{ alerte.date_creation }}</td>
+        <td><a href="/alertes/acquitter/{{ alerte.id }}">Acquitter</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Aucune alerte active.</p>
+  {% endif %}
+</body>
+</html>
