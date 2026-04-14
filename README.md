@@ -50,3 +50,82 @@ Tu vas voir quelque chose comme :
   [OK] 8.8.8.8 - latence : 12.0 ms
   ...
 Les équipements fictifs vont tous échouer (normal, les IPs n'existent pas sur ton réseau), mais c'est exactement ce qu'on veut voir — le système détecte les pannes et crée les alertes après 3 échecs consécutifs.
+
+
+"""
+Gestion des alertes du système de supervision.
+
+Ce module encapsule la logique métier pour créer, lister et acquitter
+les alertes sans que les autres modules accèdent directement aux
+fonctions bas niveau de la base de données.
+Objectif du module alertemanager.py
+Le but principal de alertemanager.py est de centraliser toute la logique liée aux alertes.
+
+Il transforme une panne détectée en action métier (créer alerte, vérifier si alerte existe déjà, acquitter alerte).
+Il évite que superviseur.py fasse directement des opérations de base de données sur les alertes.
+Il sert de couche intermédiaire entre la supervision et la base de données.
+Pourquoi on utilise ce module
+On l’utilise pour respecter le principe de séparation des responsabilités :
+
+superviseur.py : fait la supervision réseau, décide quand il y a un problème.
+alertemanager.py : gère uniquement les règles et le traitement des alertes.
+basedonne.py : exécute réellement les opérations SQLite.
+C’est important parce que :
+
+le code est plus propre
+plus simple à maintenir
+plus facile à modifier si on change la façon dont on gère les alertes
+plus facile à tester séparément
+Comment il fonctionne en arrière-plan
+1. Superviseur détecte une panne
+Quand superviseur.py voit qu’un équipement n’a pas répondu pendant SEUIL_PANNES_CONSECUTIVES cycles, il appelle :
+
+generer_alerte(...)
+2. alertemanager.py vérifie l’alerte active
+Dans generer_alerte, il fait d’abord :
+
+est_alerte_active(equipement_id)
+Cette fonction appelle la base de données via get_alertes_actives() pour savoir si une alerte non acquittée existe déjà pour cet équipement.
+
+3. Création d’alerte si besoin
+Si aucune alerte active n’existe :
+
+il appelle creer_alerte(...) depuis basedonne.py
+il écrit aussi un log via ajouter_log(...)
+Si une alerte est déjà active :
+
+il ne recrée rien
+il ajoute un log de type WARNING
+4. Liste des alertes actives
+lister_alertes_actives() retourne simplement les alertes non acquittées.
+
+5. Acquittement d’une alerte
+acquitter_alerte_par_id(alerte_id) :
+
+appelle acquitter_alerte() en base
+ajoute un log pour garder la trace
+Son rôle dans la structure du projet
+Dans l’architecture globale, alertemanager.py est la couche métier entre :
+
+superviseur.py (qui orchestre la surveillance)
+basedonne.py (qui stocke les données)
+Schéma simplifié :
+
+config.py : paramètres et seuils
+pinger.py : ping / réponse réseau
+superviseur.py : boucle, décision de panne
+alertemanager.py : règles d’alerte, état des alertes
+basedonne.py : persistance SQLite
+En résumé
+alertemanager.py est utile parce que :
+
+il sépare la logique d’alerte de la logique de supervision
+il évite qu’on crée plusieurs fois la même alerte
+il garde la base propre en n’écrivant que ce qui est nécessaire
+il facilite l’évolution du projet si tu veux ajouter par exemple :
+une notification e-mail
+un envoi Slack
+un système d’escalade
+Si tu veux, je peux aussi t’expliquer comment ajouter une fonction de notification (mail/Slack) dans alertemanager.py.
+
+Raptor mini (Preview) • 1x
