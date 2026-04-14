@@ -120,6 +120,16 @@ def mettre_a_jour_statut(equipement_id, statut):
     conn.close()
 
 
+def mettre_a_jour_verification(equipement_id):
+    conn = get_connection()
+    conn.execute("""
+        UPDATE equipements
+        SET derniere_verification = ?
+        WHERE id = ?
+    """, (datetime.now(), equipement_id))
+    conn.commit()
+    conn.close()
+
 
 # FONCTIONS METRIQUES
 
