@@ -1,3 +1,6 @@
+Email : admin@localhost
+Mot de passe : admin
+
 Étape 1 — database.py + config.py : créer la base de données et définir les équipements fictifs. C'est le socle de tout.
 Étape 2 — pinger.py : la fonction qui ping une IP et retourne True/False + latence.
 Étape 3 — supervisor.py : la boucle qui tourne toutes les X secondes, appelle le pinger sur chaque équipement, stocke les résultats, détecte les pannes.
