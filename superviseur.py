@@ -104,10 +104,10 @@ def cycle_supervision():
     equipements = get_tous_equipements()
     maintenant  = datetime.now().strftime("%H:%M:%S")
 
-    print(f"\n{'='*50}")
+    print(f"\n{'_'*50}")
     print(f"[CYCLE] {maintenant} - supervision de "
           f"{len(equipements)} équipements")
-    print(f"{'='*50}")
+    
 
     for eq in equipements:
         # convertir Row sqlite en dict pour faciliter l'accès
@@ -118,7 +118,7 @@ def cycle_supervision():
     # afficher les alertes actives à la fin du cycle
     alertes = lister_alertes_actives()
     if alertes:
-        print(f"\n  ⚠️  {len(alertes)} alerte(s) active(s) non acquittée(s)")
+        print(f"\n    {len(alertes)} alerte(s) active(s) non acquittée(s)")
 
 
 def demarrer():
@@ -126,10 +126,10 @@ def demarrer():
     Point d'entrée principal — boucle infinie de supervision.
     Correspond à 'Démarrage du système' dans le diagramme d'activité.
     """
-    print("="*50)
+    
     print("  SYSTÈME DE SUPERVISION RÉSEAU")
     print("  Démarrage...")
-    print("="*50)
+    
 
     # étape 1 : initialiser la base et les équipements
     from basedonne import creer_tables
