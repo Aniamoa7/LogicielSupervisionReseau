@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Supervision{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="background-visual"></div>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">ESXi</span>
+        <span class="brand-name">Supervision</span>
+      </div>
+      <div class="top-actions">
+        {% if user_logged_in %}
+          <span class="user-info">{{ user.nom }} ({{ user.role }})</span>
+          <a class="top-link" href="{{ url_for('logout') }}">Déconnexion</a>
+        {% else %}
+          <a class="top-link" href="{{ url_for('login') }}">Connexion</a>
+        {% endif %}
+      </div>
+    </header>
+
+    <main class="main-panel">
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+      Interface de supervision · design modernisé · back-end Python/Flask
+    </footer>
+  </div>
+</body>
+</html>

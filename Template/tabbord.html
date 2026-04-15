@@ -1,58 +1,63 @@
-<!doctype html>
-<html lang="fr">
-<head>
-  <meta charset="utf-8">
-  <title>Dashboard Supervision</title>
-  <style>body{font-family:Arial;margin:20px;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #ccc;padding:8px;text-align:left;}th{background:#f4f4f4;}a{color:#0066cc;}</style>
-</head>
-<body>
-  <h1>Dashboard de supervision</h1>
-  <p>
-    {% if user_logged_in %}
-      Connecté en tant que {{ user.nom }} ({{ user.role }}) | <a href="/logout">Déconnexion</a>
-      {% if user.role == 'ADMINISTRATEUR' %}| <a href="/utilisateurs">Utilisateurs</a>{% endif %}
+{% extends "base.html" %}
+
+{% block title %}Dashboard de supervision{% endblock %}
+
+{% block content %}
+<div class="page-card">
+  <div class="page-header">
+    <div>
+      <h1>Dashboard de supervision</h1>
+      <p class="section-subtitle">Vue générale des équipements et des alertes actives.</p>
+    </div>
+    <div class="page-actions">
+      <a class="page-link" href="/equipements">Équipements</a>
+      <a class="page-link" href="/alertes">Alertes</a>
+      {% if user.role == 'ADMINISTRATEUR' %}
+      <a class="page-link" href="/utilisateurs">Utilisateurs</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <section class="section-card">
+    <h2>Équipements supervisés</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Nom</th><th>IP</th><th>Type</th><th>Statut</th><th>Dernière vérification</th></tr></thead>
+      <tbody>
+        {% for eq in equipements %}
+        <tr>
+          <td>{{ eq.id }}</td>
+          <td><a href="/equipement/{{ eq.id }}">{{ eq.nom }}</a></td>
+          <td>{{ eq.adresse_ip }}</td>
+          <td>{{ eq.type }}</td>
+          <td><span class="status-chip">{{ eq.statut }}</span></td>
+          <td>{{ eq.derniere_verification or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="section-card">
+    <h2>Alertes actives</h2>
+    {% if alertes %}
+      <table>
+        <thead><tr><th>ID</th><th>Équipement</th><th>Titre</th><th>Niveau</th><th>Date</th><th>Acquitter</th></tr></thead>
+        <tbody>
+          {% for alerte in alertes %}
+          <tr>
+            <td>{{ alerte.id }}</td>
+            <td>{{ alerte.equipement_nom }} ({{ alerte.adresse_ip }})</td>
+            <td>{{ alerte.titre }}</td>
+            <td><span class="status-chip">{{ alerte.niveau }}</span></td>
+            <td>{{ alerte.date_creation }}</td>
+            <td><a class="card-link" href="/alertes/acquitter/{{ alerte.id }}">Acquitter</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     {% else %}
-      <a href="/login">Connexion</a>
+      <p>Aucune alerte active.</p>
     {% endif %}
-  </p>
-  <p><a href="/equipements">Liste des équipements</a> | <a href="/alertes">Alertes actives</a></p>
-
-  <h2>Équipements supervisés</h2>
-  <table>
-    <thead><tr><th>ID</th><th>Nom</th><th>IP</th><th>Type</th><th>Statut</th><th>Dernière vérification</th></tr></thead>
-    <tbody>
-      {% for eq in equipements %}
-      <tr>
-        <td>{{ eq.id }}</td>
-        <td><a href="/equipement/{{ eq.id }}">{{ eq.nom }}</a></td>
-        <td>{{ eq.adresse_ip }}</td>
-        <td>{{ eq.type }}</td>
-        <td>{{ eq.statut }}</td>
-        <td>{{ eq.derniere_verification or '—' }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-
-  <h2>Alertes actives</h2>
-  {% if alertes %}
-  <table>
-    <thead><tr><th>ID</th><th>Équipement</th><th>Titre</th><th>Niveau</th><th>Date</th><th>Acquitter</th></tr></thead>
-    <tbody>
-      {% for alerte in alertes %}
-      <tr>
-        <td>{{ alerte.id }}</td>
-        <td>{{ alerte.equipement_nom }} ({{ alerte.adresse_ip }})</td>
-        <td>{{ alerte.titre }}</td>
-        <td>{{ alerte.niveau }}</td>
-        <td>{{ alerte.date_creation }}</td>
-        <td><a href="/alertes/acquitter/{{ alerte.id }}">Acquitter</a></td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p>Aucune alerte active.</p>
-  {% endif %}
-</body>
-</html>
+  </section>
+</div>
+{% endblock %}
