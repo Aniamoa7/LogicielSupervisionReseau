@@ -1,4 +1,4 @@
-# database.py
+
 import sqlite3
 from datetime import datetime
 
@@ -129,6 +129,44 @@ def mettre_a_jour_verification(equipement_id):
     """, (datetime.now(), equipement_id))
     conn.commit()
     conn.close()
+
+
+def get_utilisateur_par_email(email):
+    conn = get_connection()
+    utilisateur = conn.execute(
+        "SELECT * FROM utilisateurs WHERE email = ?",
+        (email,)
+    ).fetchone()
+    conn.close()
+    return utilisateur
+
+
+def get_tous_utilisateurs():
+    conn = get_connection()
+    utilisateurs = conn.execute(
+        "SELECT * FROM utilisateurs ORDER BY role DESC, nom ASC"
+    ).fetchall()
+    conn.close()
+    return utilisateurs
+
+
+def ajouter_utilisateur(nom, email, mot_de_passe, role="TECHNICIEN"):
+    conn = get_connection()
+    conn.execute("""
+        INSERT OR IGNORE INTO utilisateurs (nom, email, mot_de_passe, role)
+        VALUES (?, ?, ?, ?)
+    """, (nom, email, mot_de_passe, role))
+    conn.commit()
+    conn.close()
+
+
+def count_utilisateurs():
+    conn = get_connection()
+    total = conn.execute(
+        "SELECT COUNT(*) AS count FROM utilisateurs"
+    ).fetchone()["count"]
+    conn.close()
+    return total
 
 
 # FONCTIONS METRIQUES
