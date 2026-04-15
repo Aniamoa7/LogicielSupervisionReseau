@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Utilisateurs</title>
+  <style>body{font-family:Arial;margin:20px;}table{border-collapse:collapse;width:100%;}th,td{border:1px solid #ccc;padding:8px;text-align:left;}th{background:#f4f4f4;}input,select{width:100%;padding:8px;margin-bottom:10px;}button{padding:10px 15px;} .message{padding:10px;border:1px solid #ccc;margin-bottom:10px;}</style>
+</head>
+<body>
+  <p><a href="/">Dashboard</a> | <a href="/equipements">Équipements</a> | <a href="/alertes">Alertes</a> | <a href="/logout">Déconnexion</a></p>
+  <h1>Gestion des utilisateurs</h1>
+  {% if message %}
+    <div class="message">{{ message }}</div>
+  {% endif %}
+  <h2>Ajouter un utilisateur</h2>
+  <form method="post" action="{{ url_for('utilisateurs') }}">
+    <label>Nom</label>
+    <input type="text" name="nom" required>
+    <label>Email</label>
+    <input type="email" name="email" required>
+    <label>Mot de passe</label>
+    <input type="password" name="mot_de_passe" required>
+    <label>Rôle</label>
+    <select name="role">
+      <option value="TECHNICIEN">TECHNICIEN</option>
+      <option value="OBSERVATEUR">OBSERVATEUR</option>
+      <option value="ADMINISTRATEUR">ADMINISTRATEUR</option>
+    </select>
+    <button type="submit">Ajouter</button>
+  </form>
+
+  <h2>Utilisateurs existants</h2>
+  <table>
+    <thead><tr><th>ID</th><th>Nom</th><th>Email</th><th>Rôle</th></tr></thead>
+    <tbody>
+      {% for u in utilisateurs %}
+      <tr>
+        <td>{{ u.id }}</td>
+        <td>{{ u.nom }}</td>
+        <td>{{ u.email }}</td>
+        <td>{{ u.role }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

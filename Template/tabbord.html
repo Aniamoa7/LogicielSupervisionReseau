@@ -7,6 +7,14 @@
 </head>
 <body>
   <h1>Dashboard de supervision</h1>
+  <p>
+    {% if user_logged_in %}
+      Connecté en tant que {{ user.nom }} ({{ user.role }}) | <a href="/logout">Déconnexion</a>
+      {% if user.role == 'ADMINISTRATEUR' %}| <a href="/utilisateurs">Utilisateurs</a>{% endif %}
+    {% else %}
+      <a href="/login">Connexion</a>
+    {% endif %}
+  </p>
   <p><a href="/equipements">Liste des équipements</a> | <a href="/alertes">Alertes actives</a></p>
 
   <h2>Équipements supervisés</h2>
