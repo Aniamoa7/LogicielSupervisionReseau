@@ -242,3 +242,604 @@ tabbord.html = vue générale, dashboard
 equipement.html = équipements + détails
 alerte.html = suivi et acquittement des alertes
 Ces fichiers sont indispensables pour que ton projet ne soit pas seulement un programme console, mais un vrai tableau de bord web.
+
+ICIIIIIIIIIII
+================================================================================
+PLAN DE MISE EN ŒUVRE : TEST AVEC 4 VMs EN MODE BRIDGED + ROUTEUR PHYSIQUE
+================================================================================
+
+OBJECTIF GLOBAL :
+Créer un environnement de test réaliste avec 4 VMs en mode Bridged connectées au routeur physique,
+puis valider que le logiciel de supervision (tournant sur la machine hôte Windows) détecte correctement
+les pannes, crée les alertes, et affiche les résultats sur le dashboard web.
+
+================================================================================
+PHASE 1 : PRÉPARATION DE L'INFRASTRUCTURE RÉSEAU (ROUTEUR PHYSIQUE + VMs BRIDGED)
+================================================================================
+
+⚠️ POINT IMPORTANT : Les VMs n'ont PAS besoin de Python installé !
+   Elles doivent simplement répondre aux pings ICMP (c'est automatique).
+   Vous allez configurer des IPs statiques et laisser le système répondre aux requêtes.
+
+ÉTAPE 1.1 : Créer 4 VMs dans VMware Workstation
+─────────────────────────────────────────────
+
+Actions à faire :
+  1. Ouvrir VMware Workstation
+  2. Créer 4 VMs avec les caractéristiques minimales :
+     - VM1 : "Serveur-Web" (Ubuntu Server ou Debian)
+     - VM2 : "Serveur-BD" (Ubuntu Server ou Debian)
+     - VM3 : "Client-Compta" (Ubuntu Server ou Debian)
+     - VM4 : "Client-Admin" (Ubuntu Server ou Debian)
+  
+  Ressources recommandées par VM :
+     - vCPU : 1-2
+     - Mémoire : 512 Mo - 1 Go (minimal suffit)
+     - Disque : 10-20 Go
+  
+  ISO à utiliser :
+     - Ubuntu Server 22.04 LTS ✓ recommandé (léger, gratuit, pas d'interface graphique)
+     - Debian 11 ou 12
+  
+Installation rapide :
+  - Installer avec les valeurs par défaut
+  - Choisir une installation MINIMALE (pas de packages supplémentaires)
+  - Créer un compte utilisateur simple (ex: user/user)
+  - ✓ Pas besoin d'installer Python, services, ou dépendances
+
+Résultat attendu :
+  ✓ 4 VMs démarrées et accessibles via SSH
+  ✓ Chaque VM peut être pingée
+  ✓ Chaque VM a un utilisateur de connexion
+
+─────────────────────────────────────────────
+
+ÉTAPE 1.2 : Configurer le mode BRIDGED sur chaque VM
+────────────────────────────────────────────────
+
+Actions à faire (Dans VMware Workstation, pour chaque VM) :
+  1. Sélectionner la VM
+  2. Clic-droit → "Settings" (ou Edit → Virtual Machine Settings)
+  3. Dans l'onglet "Hardware" → "Network Adapter"
+  4. Changer le mode réseau :
+     Avant : "NAT" ou "Host-only"
+     Après : "Bridged"
+  5. Sélectionner l'adaptateur réseau physique :
+     → Choisir celui qui est connecté au routeur physique
+  6. Cliquer "OK"
+  7. Répéter pour les 4 VMs
+
+Résultat attendu :
+  ✓ Les 4 VMs sont en mode Bridged
+  ✓ Chaque VM aura une IP du même réseau que votre PC hôte
+
+─────────────────────────────────────────────
+
+ÉTAPE 1.3 : Brancher votre PC au routeur physique
+──────────────────────────────────────────────
+
+Actions à faire :
+  1. Brancher votre machine hôte au routeur physique avec un câble Ethernet
+     (ou Wi-Fi si le routeur supporte)
+  
+  2. Vérifier que vous recevez une adresse IP du routeur :
+     Windows PowerShell :
+     $ ipconfig | grep -A 5 "Ethernet"
+     
+     Vous devez voir une adresse IP du routeur (ex: 192.168.2.10)
+  
+  3. Noter l'adresse IP de votre PC hôte (vous en aurez besoin plus tard)
+
+Résultat attendu :
+  ✓ Votre PC reçoit une IP du routeur (ex: 192.168.2.10)
+  ✓ Vous avez une connectivité réseau
+
+─────────────────────────────────────────────
+
+ÉTAPE 1.4 : Démarrer les VMs et récupérer leurs IPs
+────────────────────────────────────────────────
+
+Actions à faire :
+  1. Démarrer les 4 VMs (clic sur le bouton "Power On" dans VMware)
+  2. Attendre qu'elles soient complètement démarrées (~1-2 minutes par VM)
+  3. Sur chaque VM, se connecter et obtenir l'IP :
+     
+     Depuis la console ou SSH :
+     $ ip addr show | grep "inet" | grep -v "127.0.0.1"
+     
+     Vous devez voir une adresse IP du routeur (ex: 192.168.2.100)
+
+NOTA : Les IPs sont actuellement en DHCP (dynamiques).
+Vous allez les rendre statiques à l'étape suivante.
+
+Résultat attendu :
+  ✓ VM1 a une IP (ex: 192.168.2.100)
+  ✓ VM2 a une IP (ex: 192.168.2.101)
+  ✓ VM3 a une IP (ex: 192.168.2.102)
+  ✓ VM4 a une IP (ex: 192.168.2.103)
+
+─────────────────────────────────────────────
+
+ÉTAPE 1.5 : Configurer les IPs statiques sur les VMs
+────────────────────────────────────────────────
+
+Sur chaque VM, identifiez d'abord votre configuration :
+  $ sudo nano /etc/netplan/00-installer-config.yaml
+
+Exemple de contenu AVANT (DHCP dynamique) :
+  ─────────────────────────────────────────────
+  network:
+    version: 2
+    ethernets:
+      eth0:
+        dhcp4: true
+  ─────────────────────────────────────────────
+
+Contenu à REMPLACER PAR (IPs statiques) :
+  ─────────────────────────────────────────────
+  network:
+    version: 2
+    ethernets:
+      eth0:
+        dhcp4: false
+        addresses:
+          - 192.168.2.101/24        ← Pour VM1
+          - 192.168.2.102/24        ← Pour VM2
+          - 192.168.2.103/24        ← Pour VM3
+          - 192.168.2.104/24        ← Pour VM4
+        gateway4: 192.168.2.1       (demander l'IP de la passerelle à votre routeur)
+        nameservers:
+          addresses: [8.8.8.8, 8.8.4.4]  (optionnel, juste pour DNS externes)
+  ─────────────────────────────────────────────
+
+Après avoir modifié le fichier :
+  $ sudo netplan apply
+  $ ip addr show          ← vérifier que l'IP est bien statique
+
+Répéter pour chaque VM avec une IP différente.
+
+Résultat attendu :
+  ✓ VM1 a l'IP statique 192.168.2.101
+  ✓ VM2 a l'IP statique 192.168.2.102
+  ✓ VM3 a l'IP statique 192.168.2.103
+  ✓ VM4 a l'IP statique 192.168.2.104
+
+─────────────────────────────────────────────
+
+ÉTAPE 1.6 : Tester la connectivité réseau
+──────────────────────────────────────────
+
+Depuis votre machine hôte (Windows), ouvrir PowerShell :
+
+  $ ping 192.168.2.101
+  $ ping 192.168.2.102
+  $ ping 192.168.2.103
+  $ ping 192.168.2.104
+
+Résultat attendu :
+  ✓ Tous les pings réussissent avec une latence 1-5 ms
+  ✓ 0 % de perte de paquets
+  ✓ Les VMs répondent correctement
+
+Si les pings ne passent pas → vérifier :
+  1. Les 4 VMs sont-elles démarrées ?
+  2. Les IPs statiques sont-elles bien configurées ?
+  3. Votre PC hôte et les VMs sont-elles sur le même réseau du routeur ?
+  4. Le routeur physique fonctionne-t-il ?
+  5. Les VMs sont-elles bien en mode Bridged dans VMware ?
+
+================================================================================
+PHASE 2 : ADAPTATION DU LOGICIEL DE SUPERVISION (SUR LA MACHINE HÔTE WINDOWS)
+================================================================================
+
+⚠️ RAPPEL IMPORTANT : 
+  - Aucune dépendance Python à installer sur les VMs
+  - Le logiciel tourne UNIQUEMENT sur votre PC Windows
+  - Les VMs ne font que répondre aux pings (automatique au niveau OS)
+
+ÉTAPE 2.1 : Vérifier les dépendances sur la machine hôte
+─────────────────────────────────────────────────────
+
+Sur votre PC Windows, ouvrir PowerShell et vérifier :
+
+  $ python --version
+  $ pip list | grep -i flask
+
+Si Flask n'est pas installé :
+  $ pip install flask
+
+Autres packages (généralement déjà inclus) :
+  $ pip install sqlite3   (est habituellement inclus par défaut)
+
+Résultat attendu :
+  ✓ Python 3.x est disponible sur votre PC
+  ✓ Flask est installé
+  ✓ SQLite3 est disponible
+
+─────────────────────────────────────────────────────
+
+ÉTAPE 2.2 : Sauvegarder la version actuelle de config.py
+─────────────────────────────────────────────────────
+
+Avant de modifier config.py, créer une copie :
+  - Dupliquer config.py → config_BACKUP.py (pour revenir en arrière si besoin)
+
+─────────────────────────────────────────────────────
+
+ÉTAPE 2.3 : Mettre à jour config.py avec les vraies IPs des VMs
+─────────────────────────────────────────────────────────────
+
+Ouvrir [config.py](config.py) et remplacer les équipements fictifs :
+
+AVANT :
+  EQUIPEMENTS = [
+      {"nom": "Routeur Principal", "adresse_ip": "192.168.1.1", "type": "ROUTEUR"},
+      {"nom": "Switch Coeur", "adresse_ip": "192.168.1.2", "type": "SWITCH"},
+      ...
+  ]
+
+APRÈS (avec les vraies IPs des VMs) :
+  EQUIPEMENTS = [
+      {"nom": "Serveur-Web", "adresse_ip": "192.168.2.101", "type": "SERVEUR"},
+      {"nom": "Serveur-BD", "adresse_ip": "192.168.2.102", "type": "SERVEUR"},
+      {"nom": "Client-Compta", "adresse_ip": "192.168.2.103", "type": "PC"},
+      {"nom": "Client-Admin", "adresse_ip": "192.168.2.104", "type": "PC"},
+  ]
+
+Résultat attendu :
+  ✓ config.py contient les 4 VMs avec leurs IPs réelles
+  ✓ Tous les autres paramètres restent identiques
+
+─────────────────────────────────────────────────────
+
+ÉTAPE 2.4 : Ajuster les seuils de détection (optionnel)
+─────────────────────────────────────────────────────
+
+Recommandations pour un test plus rapide :
+  INTERVALLE_SUPERVISION = 10     ← Au lieu de 30 (pour réagir plus vite)
+  SEUIL_PANNES_CONSECUTIVES = 2   ← Au lieu de 3 (panne détectée plus vite)
+  TIMEOUT_PING = 2                ← Au lieu de 1 (laisser plus de temps)
+
+Ces paramètres accélèrent les tests mais peuvent être réajustés après.
+
+─────────────────────────────────────────────────────
+
+ÉTAPE 2.5 : Supprimer la base de données existante
+─────────────────────────────────────────────────
+
+Avant de redémarrer le superviseur, supprimer :
+  - supervision.db (base de données SQLite existante)
+  
+Cela force la création d'une nouvelle base vide avec les 4 VMs.
+
+Action sur Windows PowerShell :
+  $ cd c:\Users\ANIA\Desktop\Programmation\Python\MyprojectCv.py\LogicielSupervision
+  $ del supervision.db
+
+Résultat attendu :
+  ✓ Lors du redémarrage du superviseur, une nouvelle base est créée
+  ✓ Elle contient uniquement les 4 VMs réelles
+
+================================================================================
+PHASE 3 : DÉMARRER LE SYSTÈME DE SUPERVISION
+================================================================================
+
+ÉTAPE 3.1 : Lancer le superviseur en arrière-plan
+───────────────────────────────────────────────
+
+Dans une console PowerShell ou Cmd :
+  $ cd c:\Users\ANIA\Desktop\Programmation\Python\MyprojectCv.py\LogicielSupervision
+  $ python superviseur.py
+
+Résultat attendu :
+  ==================================================
+    SYSTÈME DE SUPERVISION RÉSEAU
+    Démarrage...
+  ==================================================
+  [SUPERVISEUR] Initialisation des équipements...
+    ✓ Serveur-Web (192.168.2.101) enregistré
+    ✓ Serveur-BD (192.168.2.102) enregistré
+    ✓ Client-Compta (192.168.2.103) enregistré
+    ✓ Client-Admin (192.168.2.104) enregistré
+  [SUPERVISEUR] Initialisation terminée.
+  
+  ==================================================
+  [CYCLE] HH:MM:SS - supervision de 4 équipements
+  ==================================================
+    [OK] Serveur-Web (192.168.2.101) - latence : 1.2 ms
+    [OK] Serveur-BD (192.168.2.102) - latence : 0.8 ms
+    [OK] Client-Compta (192.168.2.103) - latence : 1.5 ms
+    [OK] Client-Admin (192.168.2.104) - latence : 1.0 ms
+
+⚠️ Le superviseur va continuer à tourner et pinger les 4 VMs toutes les 10 secondes.
+
+─────────────────────────────────────────────────────
+
+ÉTAPE 3.2 : Lancer l'interface web (dans une autre console)
+─────────────────────────────────────────────────────────
+
+Ouvrir une nouvelle console PowerShell / Cmd :
+  $ cd c:\Users\ANIA\Desktop\Programmation\Python\MyprojectCv.py\LogicielSupervision
+  $ python appli.py
+
+Résultat attendu :
+  * Running on http://localhost:5000
+  * Press CTRL+C to quit
+
+Depuis votre navigateur (Firefox, Chrome, Edge) :
+  → Aller à http://localhost:5000
+  
+Dashboard attendu :
+  ✓ Liste des 4 VMs
+  ✓ Statut [OK] en vert pour chaque VM (car elles pinguent bien)
+  ✓ Latence affichée en ms
+
+Identifiants :
+  Email : admin@localhost
+  Mot de passe : admin
+
+================================================================================
+PHASE 4 : TESTER LA DÉTECTION DE PANNES
+================================================================================
+
+ÉTAPE 4.1 : Arrêter une VM pour simuler une panne réseau
+──────────────────────────────────────────────────────
+
+Depuis VMware Workstation :
+  1. Sélectionner une VM (par exemple VM2 - Serveur-BD)
+  2. Clic-droit → Power → Suspend (suspend la VM)
+     OU clic sur le bouton "Suspend" dans VMware
+
+Observation en temps réel :
+  ✓ Dans la console du superviseur : vous allez voir
+    [ECHEC] Serveur-BD (192.168.2.102) - échec 1/2
+    [ECHEC] Serveur-BD (192.168.2.102) - échec 2/2
+    [ALERTE] Serveur-BD (192.168.2.102) - PANNE DÉTECTÉE
+  
+  ✓ Dans le dashboard web (http://localhost:5000) :
+    - Le statut de Serveur-BD passe au rouge [DOWN]
+    - Une alerte s'ajoute à la section "Alertes actives"
+
+Résultat attendu : La panne est détectée et signalée en ≤ 20 secondes
+
+─────────────────────────────────────────────────────
+
+ÉTAPE 4.2 : Redémarrer la VM pour simuler une récupération
+──────────────────────────────────────────────────────
+
+Depuis VMware Workstation :
+  1. Clic-droit sur VM2 → Power → Resume
+     OU clic sur le bouton "Resume"
+
+Observation :
+  ✓ Dans la console du superviseur :
+    [OK] Serveur-BD (192.168.2.102) - latence : 0.9 ms
+  
+  ✓ Dans le dashboard web :
+    - Le statut revient au vert [UP]
+    - L'alerte reste active (elle ne disparaît qu'après acquittement)
+
+─────────────────────────────────────────────────────
+
+ÉTAPE 4.3 : Acquitter l'alerte depuis le dashboard
+──────────────────────────────────────────────────
+
+Dans le dashboard (http://localhost:5000) :
+  1. Clic sur "Alertes" en haut
+  2. Clic sur le bouton "Acquitter" en face de l'alerte Serveur-BD
+
+Résultat :
+  ✓ L'alerte disparaît de la liste (elle est marquée comme acquittée)
+  ✓ Historique conservé dans la base de données
+
+─────────────────────────────────────────────────────
+
+ÉTAPE 4.4 : Tester les défaillances multiples
+──────────────────────────────────────────────
+
+Pour un test plus complet, simuler plusieurs scénarios :
+  
+  Scénario 1 : Arrêter VM1 (Serveur-Web)
+    → Vérifier panne détectée en < 20 secondes
+    → Redémarrer et acquitter
+  
+  Scénario 2 : Arrêter VM3 (Client-Compta)
+    → Vérifier panne détectée
+    → Laisser arrêtée pendant 2-3 minutes
+    → Redémarrer et observer le temps de récupération
+  
+  Scénario 3 : Arrêter VM1 et VM4 simultanément
+    → Vérifier que DEUX alertes sont créées
+    → Redémarrer progressivement et observer
+
+Résultat attendu :
+  ✓ Toutes les pannes sont détectées
+  ✓ Les alertes s'affichent correctement
+  ✓ La récupération est bien détectée
+  ✓ Les alertes peuvent être acquittées
+
+================================================================================
+PHASE 5 : VALIDATION ET OPTIMISATION
+================================================================================
+
+ÉTAPE 5.1 : Vérifier les métriques dans la base de données
+──────────────────────────────────────────────────────────
+
+Optionnel (pour vérifier les données brutes) :
+  $ sqlite3 supervision.db
+  
+  > SELECT equipement_id, timestamp, statut, latence FROM metriques LIMIT 20;
+  
+Cela affiche les 20 dernières métriques enregistrées.
+
+─────────────────────────────────────────────────────
+
+ÉTAPE 5.2 : Consulter les alertes dans la base
+──────────────────────────────────────────────
+
+Depuis SQLite :
+  > SELECT id, equipement_id, niveau, date_creation, acquittee FROM alertes;
+  
+Cela affiche toutes les alertes (y compris celles acquittées).
+
+─────────────────────────────────────────────────────
+
+ÉTAPE 5.3 : Optimiser les seuils en fonction des résultats
+───────────────────────────────────────────────────────
+
+Si la détection est trop lente :
+  → Diminuer INTERVALLE_SUPERVISION (ex: 5 au lieu de 10)
+  → Diminuer SEUIL_PANNES_CONSECUTIVES (ex: 1 au lieu de 2)
+
+Si la détection est trop rapide (faux positifs) :
+  → Augmenter TIMEOUT_PING
+  → Augmenter SEUIL_PANNES_CONSECUTIVES
+
+Formule de temps de détection :
+  Temps = INTERVALLE_SUPERVISION × SEUIL_PANNES_CONSECUTIVES
+  
+  Exemple : 10 secondes × 2 échechs = 20 secondes avant alerte
+
+─────────────────────────────────────────────────────
+
+ÉTAPE 5.4 : Tests de charge (optionnel)
+────────────────────────────────────────
+
+Pour tester la stabilité du système :
+  1. Garder le superviseur actif pendant 30 minutes
+  2. Arrêter/Redémarrer des VMs au hasard
+  3. Vérifier qu'aucun bug n'apparaît
+  4. Vérifier que la base de données ne se corrompt pas
+  5. Vérifier que le CPU/RAM restent stables
+
+Résultat attendu :
+  ✓ Pas de crash
+  ✓ Pas d'erreurs Python
+  ✓ Pas de perte de données
+
+================================================================================
+RÉSUMÉ RAPIDE (CHECKLIST)
+================================================================================
+
+Phase 1 - Infrastructure réseau :
+  [ ] 4 VMs créées dans VMware avec installation Ubuntu Server minimale
+  [ ] Mode Bridged configuré sur chaque VM
+  [ ] PC hôte connecté au routeur physique via Ethernet
+  [ ] IPs statiques assignées (192.168.2.101-104 sur les VMs)
+  [ ] Pings depuis la machine hôte vers les VMs réussissent
+
+Phase 2 - Logiciel (sur PC Windows) :
+  [ ] Flask installé sur le PC hôte (pip install flask)
+  [ ] config.py mis à jour avec les vraies IPs des VMs
+  [ ] supervision.db supprimé (pour réinitialiser la base)
+  [ ] Seuils ajustés si besoin (INTERVALLE_SUPERVISION, etc.)
+
+Phase 3 - Démarrage :
+  [ ] Superviseur lancé avec python superviseur.py
+  [ ] Tous les équipements (4 VMs) sont détectés et enregistrés
+  [ ] Interface web accessible sur http://localhost:5000
+  [ ] Dashboard affiche les 4 VMs en [OK] avec latence
+
+Phase 4 - Tests de détection de pannes :
+  [ ] Arrêt d'une VM (Power Off dans VMware) → panne détectée
+  [ ] Console superviseur affiche "[ALERTE]" après ~20 secondes
+  [ ] Dashboard web affiche la VM en rouge [DOWN]
+  [ ] Redémarrage de la VM → statut revient au vert [UP]
+  [ ] Alerte acquittée depuis le dashboard → elle disparaît
+  [ ] Tests multiples avec différentes VMs réussis
+
+Phase 5 - Validation :
+  [ ] Métriques enregistrées correctement dans la base (SELECT * FROM metriques)
+  [ ] Alertes créées et acquittées (SELECT * FROM alertes)
+  [ ] Aucun crash du superviseur pendant 30+ minutes de test
+  [ ] Seuils optimisés selon vos besoins réels
+
+================================================================================
+TRUCS & ASTUCES
+================================================================================
+
+💡 Raccourcis utiles :
+
+  Pour arrêter le superviseur :
+    → CTRL+C dans la console PowerShell
+
+  Pour redémarrer avec une base vierge :
+    → Supprimer supervision.db
+    → Redémarrer le superviseur
+
+  Pour voir les logs détaillés :
+    → Les logs sont affichés en temps réel dans la console du superviseur
+
+  Pour déboguer une VM qui ne répond pas :
+    → Depuis la VM : $ ping -c 1 192.168.2.1 (votre passerelle)
+    → Depuis l'hôte : $ ping 192.168.2.XXX
+
+  Pour obtenir l'IP d'une VM :
+    → Depuis la VM : $ ip addr show | grep "192.168"
+
+💡 Points importants sur le mode Bridged :
+
+  Avantages :
+    ✓ Les VMs obtiennent des IPs réelles du routeur (pas de NAT)
+    ✓ Pas de configuration réseau complexe dans VMware
+    ✓ Les VMs sont sur le même réseau que la machine hôte
+    ✓ La simulation est très réaliste
+  
+  Attention :
+    ✓ Ne déconnectez PAS l'adaptateur réseau physique du routeur
+    ✓ Les VMs utiliseront la même interface réseau que votre PC
+    ✓ Si vous perdez la connexion au routeur, les VMs aussi
+    ✓ Toutes les VMs doivent être configurées avec le MÊME adaptateur réseau Bridged
+
+💡 Si vous ne voyez pas les IPs en mode Bridged :
+
+  1. Vérifier que VMware "Virtual Network Editor" montre l'adaptateur bridgé activé
+  2. Redémarrer la VM (parfois necessite un redémarrage pour obtenir l'IP du routeur)
+  3. Vérifier que le routeur DHCP fonctionne correctement
+  4. Vérifier que l'adaptateur physique du PC est bien connecté au routeur
+
+💡 Changements après les tests :
+
+  Pour revenir à l'ancienne configuration fictive :
+    1. Restaurer config_BACKUP.py → config.py
+    2. Supprimer supervision.db
+    3. Redémarrer le superviseur
+
+  Pour tester avec une autre approche réseau :
+    - Vous pouvez toujours basculer vers un réseau virtuel VMware
+    - Ou utiliser plusieurs routeurs physiques
+    - Ou combiner les deux (certaines VMs bridgées, d'autres virtuelles)
+
+================================================================================
+CONCLUSION
+================================================================================
+
+Ce plan vous permet de :
+  ✓ Tester le système de supervision sur des VMs réelles en mode Bridged
+  ✓ Utiliser votre routeur physique pour la gestion du réseau
+  ✓ Valider que la détection de pannes fonctionne correctement
+  ✓ Vérifier que les alertes s'affichent bien
+  ✓ Optimiser les seuils en fonction de vos besoins
+  ✓ Obtenir une simulation très réaliste d'un réseau d'entreprise
+
+Éléments clés :
+  ✓ Aucun installation Python sur les VMs requise
+  ✓ Le logiciel tourne 100% sur votre PC Windows
+  ✓ Les VMs réagissent simplement au ping (automatique)
+  ✓ Configuration simple et directe sans réseau virtuel VMware complexe
+  ✓ Très réaliste : les VMs utilisant des vraies adresses du routeur
+
+Durée estimée pour tout le plan : 2-3 heures
+  - Création et configuration des VMs : 45 min - 1h
+  - Configuration mode Bridged et IPs : 15 min
+  - Adaptation du logiciel : 10 min
+  - Tests de fonctionnement : 30 min
+  - Optimisation et troubleshooting : 30-60 min
+
+Notes finales :
+  → Gardez le routeur toujours actif pendant les tests
+  → Évitez de débrancher le câble réseau de votre PC pendant les tests
+  → Les VMs peuvent rester démarrées en permanence si besoin
+  → Le supervisor peut tourner 24h/24 en arrière-plan
+
+Bonne chance ! 🚀
